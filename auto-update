@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# This is a script to keep a server up to date using
+# apt-get. This script should be run using cron on a
+# weekly basis.
+# This script performs updates and then sends an email
+# to the chosen admin informing them whether the update
+# was successful
+
+# Based off the script from:
+# https://help.ubuntu.com/community/AutoWeeklyUpdateHowTo
+
+# Modified by Victor Ansart Feb 2019
+
+# Set the variable $admin_email as your email address.
+admin_mail="myemail@gmail.com"
+
+# Create a temporary path in /tmp to write a temporary log
+# file. No need to edit.
+tmpfile=$(mktemp)
+
+# Run the commands to update the system and write the log
+# file at the same time.
+echo "apt-get update" >> ${tmpfile}
+apt-get update >> ${tmpfile} 2>&1
+echo "" >> ${tmpfile}
+echo "apt-get upgrade" >> ${tmpfile}
+apt-get -y upgrade >> ${tmpfile} 2>&1
+echo "" >> ${tmpfile}
+echo "apt-get clean" >> ${tmpfile}
+apt-get auto-remove >> ${tmpfile} 2>&1
+
+# Send the temporary log via mail. The fact if the upgrade
+# was succesful or not is written in the subject field.
+if grep -q 'E: \|W: ' ${tmpfile} ; then
+        printf "Subject: Upgrade of ${HOSTNAME} FAILED $(date)\n\n" | cat - ${tmpfile} | ssmtp ${admin_mail}
+else
+        printf "Subject: Upgrade of ${HOSTNAME} succesfull $(date)\n\n" | cat - ${tmpfile} | ssmtp ${admin_mail}
+fi
+
+# Remove the temporary log file in temporary path.
+rm -f ${tmpfile}
